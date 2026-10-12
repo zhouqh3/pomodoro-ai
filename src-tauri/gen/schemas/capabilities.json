@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"主窗口。页面在 localhost 上，需要远程来源才能调用展开窗口。","remote":{"urls":["http://localhost:3000/*","http://127.0.0.1:3000/*"]},"local":true,"windows":["main"],"permissions":["core:default","allow-restore-window","allow-drag-window","allow-fit-compact"]}}

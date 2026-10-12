@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fit-compact"
+description = "Enables the fit_compact command without any pre-configured scope."
+commands.allow = ["fit_compact"]
+
+[[permission]]
+identifier = "deny-fit-compact"
+description = "Denies the fit_compact command without any pre-configured scope."
+commands.deny = ["fit_compact"]

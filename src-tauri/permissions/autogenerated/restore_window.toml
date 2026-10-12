@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-restore-window"
+description = "Enables the restore_window command without any pre-configured scope."
+commands.allow = ["restore_window"]
+
+[[permission]]
+identifier = "deny-restore-window"
+description = "Denies the restore_window command without any pre-configured scope."
+commands.deny = ["restore_window"]

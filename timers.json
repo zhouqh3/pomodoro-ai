@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "name": "专注",
+    "duration": 1500,
+    "remaining": 1489,
+    "running": false,
+    "startedAt": null,
+    "remainingAtStart": null
+  },
+  {
+    "id": 2,
+    "name": "测试",
+    "duration": 300,
+    "remaining": 300,
+    "running": true,
+    "startedAt": 1791792387167,
+    "remainingAtStart": 300,
+    "finishedAt": null
+  },
+  {
+    "id": 3,
+    "name": "休息",
+    "duration": 1800,
+    "remaining": 1800,
+    "running": false,
+    "startedAt": null,
+    "remainingAtStart": null
+  }
+]

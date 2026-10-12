@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>番茄 AI 时钟</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="mini" class="mini" title="拖动可移动，双击展开">
+    <span id="mini-time">00:00</span>
+  </div>
+
+  <div class="container">
+    <header>
+      <div class="brand">
+        <span class="logo" aria-hidden="true">🍅</span>
+        <h1>番茄 AI 时钟</h1>
+      </div>
+      <button id="settings-btn" class="ghost" title="设置">设置</button>
+    </header>
+
+    <main>
+      <section class="block">
+        <div class="block-head">
+          <h2>计时</h2>
+          <form id="add-timer" class="add-timer">
+            <input id="add-name" type="text" placeholder="名称" maxlength="40" autocomplete="off" required>
+            <label class="minute-field">
+              <input id="add-minutes" type="number" min="1" max="1440" step="1" value="25" aria-label="分钟" required>
+              <span>分钟</span>
+            </label>
+            <button type="submit" class="primary">添加</button>
+          </form>
+        </div>
+        <p id="add-error" class="add-error"></p>
+        <div id="timers" class="timers"></div>
+      </section>
+
+      <section class="block chat">
+        <h2>对话</h2>
+        <div id="chat-box" class="chat-box"></div>
+        <div class="chat-input">
+          <input id="chat-input" type="text" placeholder="例如：添加 30 分钟复习，或开始专注" autocomplete="off">
+          <button id="send-btn">发送</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-body">
+      <h2>配置</h2>
+      <label>Ollama 地址<input id="cfg-ollamaUrl" type="text" placeholder="http://127.0.0.1:11434"></label>
+      <label>模型<select id="cfg-model"></select></label>
+      <p id="cfg-model-error" class="add-error"></p>
+      <label>休息提醒间隔（分钟）<input id="cfg-breakMinutes" type="number" min="1" max="1440" step="1"></label>
+      <div class="modal-actions">
+        <button id="save-cfg" class="primary">保存</button>
+        <button id="close-cfg" class="ghost">取消</button>
+      </div>
+      <p class="hint">对话走本机 Ollama，模型列表在打开设置时读取。保存后即时生效。休息提醒由桌面版读取，大约 15 秒内生效，锁屏后重新计时。</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
