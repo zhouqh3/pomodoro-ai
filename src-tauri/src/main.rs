@@ -142,7 +142,7 @@ fn start_break_reminder(_app: tauri::AppHandle) {}
 
 /// config.json 里的休息间隔（分钟）。缺字段或读失败返回 None，调用方沿用当前值。
 fn read_break_minutes() -> Option<u64> {
-    let text = std::fs::read_to_string(locate_server()?.join("config.json")).ok()?;
+    let text = std::fs::read_to_string(data_home().join("config.json")).ok()?;
     let v: serde_json::Value = serde_json::from_str(&text).ok()?;
     let n = v.get("breakMinutes")?.as_u64()?;
     (1..=24 * 60).contains(&n).then_some(n)
@@ -150,6 +150,24 @@ fn read_break_minutes() -> Option<u64> {
 
 fn port() -> u16 {
     std::env::var("PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(3000)
+}
+
+/// 开发时用项目目录。发布版是单个 exe，配置放在本机数据目录。
+fn data_home() -> PathBuf {
+    if cfg!(debug_assertions) {
+        if let Some(dir) = locate_server() {
+            return dir;
+        }
+    }
+    if let Some(base) = std::env::var_os("LOCALAPPDATA") {
+        let dir = PathBuf::from(base).join("pomodoro-ai");
+        let _ = std::fs::create_dir_all(&dir);
+        return dir;
+    }
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 // 从 exe 所在目录逐级向上, 找到含 server.js 的项目根目录
@@ -171,6 +189,46 @@ fn locate_server() -> Option<PathBuf> {
     None
 }
 
+#[cfg(not(debug_assertions))]
+fn spawn_embedded_server(p: u16) -> std::io::Result<std::process::Child> {
+    use std::hash::{Hash, Hasher};
+    use std::io::Write;
+    const BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/pomodoro-server.exe"));
+    let home = data_home();
+    let server = home.join("pomodoro-server.exe");
+    let stamp = home.join("pomodoro-server.stamp");
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    BYTES.hash(&mut hasher);
+    let hash = hasher.finish().to_string();
+    let current = std::fs::read_to_string(&stamp).unwrap_or_default();
+    if current != hash || !server.exists() {
+        let mut file = std::fs::File::create(&server)?;
+        file.write_all(BYTES)?;
+        std::fs::write(&stamp, &hash)?;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        return std::process::Command::new(&server)
+            .env("PORT", p.to_string())
+            .env("POMODORO_HOME", &home)
+            .creation_flags(0x08000000)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        std::process::Command::new(&server)
+            .env("PORT", p.to_string())
+            .env("POMODORO_HOME", &home)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+    }
+}
+
+#[cfg(debug_assertions)]
 fn spawn_node_server(p: u16) -> std::io::Result<std::process::Child> {
     let dir = locate_server().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "找不到 server.js")
@@ -266,6 +324,11 @@ fn enter_compact(window: &tauri::WebviewWindow) {
 }
 
 #[tauri::command]
+fn compact_window(window: tauri::WebviewWindow) {
+    enter_compact(&window);
+}
+
+#[tauri::command]
 fn restore_window(window: tauri::WebviewWindow) {
     restore_full(&window);
     let _ = window.show();
@@ -356,14 +419,18 @@ fn main() {
             pos: None,
         }))
         .plugin(tauri_plugin_notification::init())
-        .invoke_handler(tauri::generate_handler![restore_window, drag_window, fit_compact])
+        .invoke_handler(tauri::generate_handler![restore_window, drag_window, fit_compact, compact_window])
         .setup(move |app| {
             let handle = app.handle().clone();
             start_break_reminder(handle.clone());
 
             std::thread::spawn(move || {
                 if TcpStream::connect(&addr).is_err() {
-                    match spawn_node_server(p) {
+                    #[cfg(debug_assertions)]
+                    let started = spawn_node_server(p);
+                    #[cfg(not(debug_assertions))]
+                    let started = spawn_embedded_server(p);
+                    match started {
                         Ok(_) => eprintln!("[pomodoro] 已启动 node 服务 ({addr})"),
                         Err(e) => {
                             eprintln!("[pomodoro] 启动 node 服务失败: {e}");

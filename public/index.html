@@ -17,7 +17,10 @@
         <span class="logo" aria-hidden="true">🍅</span>
         <h1>番茄 AI 时钟</h1>
       </div>
-      <button id="settings-btn" class="ghost" title="设置">设置</button>
+      <div class="header-actions">
+        <button id="report-btn" class="ghost" title="报告">报告</button>
+        <button id="settings-btn" class="ghost" title="设置">设置</button>
+      </div>
     </header>
 
     <main>
@@ -48,9 +51,87 @@
     </main>
   </div>
 
+  <div id="report-modal" class="modal hidden">
+    <div class="modal-body report">
+      <div class="report-head">
+        <h2>报告</h2>
+        <button id="report-close" class="ghost" title="关闭">✕</button>
+      </div>
+      <div class="tabs" id="report-tabs">
+        <button type="button" data-tab="summary" class="on">概览</button>
+        <button type="button" data-tab="detail">明细</button>
+      </div>
+      <section data-panel="summary">
+        <h3>活动概览</h3>
+        <div class="stats">
+          <div class="stat"><b id="stat-hours">0</b><span>专注小时</span></div>
+          <div class="stat"><b id="stat-days">0</b><span>使用天数</span></div>
+          <div class="stat"><b id="stat-streak">0</b><span>连续天数</span></div>
+        </div>
+        <div class="report-tools">
+          <h3>专注时长</h3>
+          <div class="range" id="report-range">
+            <button type="button" data-range="week" class="on">周</button>
+            <button type="button" data-range="month">月</button>
+            <button type="button" data-range="year">年</button>
+          </div>
+        </div>
+        <div class="pager">
+          <button type="button" id="report-prev" class="ghost">‹</button>
+          <span id="report-title">本周</span>
+          <button type="button" id="report-next" class="ghost">›</button>
+        </div>
+        <div id="report-chart" class="chart"></div>
+      </section>
+      <section data-panel="detail" class="hidden"></section>
+    </div>
+  </div>
+
   <div id="settings-modal" class="modal hidden">
     <div class="modal-body">
-      <h2>配置</h2>
+      <h2>设置</h2>
+      <p class="set-kicker">声音</p>
+      <div class="set-row"><span>结束提示</span>
+        <select id="cfg-alarmSound">
+          <option value="kitchen">厨房</option>
+          <option value="bell">铃声</option>
+          <option value="digital">电子</option>
+          <option value="chime">和弦</option>
+          <option value="none">无</option>
+        </select>
+      </div>
+      <div class="set-row"><span>音量</span><input id="cfg-alarmVolume" type="range" min="0" max="100" value="70"></div>
+      <div class="set-row"><span>重复</span><input id="cfg-alarmRepeat" type="number" min="1" max="10" step="1" value="1"></div>
+      <div class="set-row"><span>开始提示</span>
+        <select id="cfg-focusSound">
+          <option value="soft">轻叮</option>
+          <option value="bell">铃声</option>
+          <option value="digital">电子</option>
+          <option value="chime">和弦</option>
+          <option value="kitchen">厨房</option>
+          <option value="none">无</option>
+        </select>
+      </div>
+      <div class="set-row"><span>音量</span><input id="cfg-focusVolume" type="range" min="0" max="100" value="50"></div>
+      <p class="set-kicker">外观</p>
+      <div class="set-row"><span>主题色</span>
+        <div class="swatches" id="cfg-theme">
+          <button type="button" class="swatch on" data-theme="red" style="--swatch:#e23b3b" aria-label="红色"></button>
+          <button type="button" class="swatch" data-theme="teal" style="--swatch:#1f8a7a" aria-label="青色"></button>
+          <button type="button" class="swatch" data-theme="blue" style="--swatch:#2f6fdb" aria-label="蓝色"></button>
+        </div>
+      </div>
+      <div class="set-row"><span>时间格式</span>
+        <select id="cfg-hourFormat">
+          <option value="24">24 小时</option>
+          <option value="12">12 小时</option>
+        </select>
+      </div>
+      <div class="set-row"><span>运行时深色</span>
+        <label class="switch"><input id="cfg-darkWhenRunning" type="checkbox"><span></span></label>
+      </div>
+      <div class="set-row"><span>小窗</span><button type="button" id="cfg-small" class="ghost">打开</button></div>
+      <p class="set-kicker">模型</p>
       <label>Ollama 地址<input id="cfg-ollamaUrl" type="text" placeholder="http://127.0.0.1:11434"></label>
       <label>模型<select id="cfg-model"></select></label>
       <p id="cfg-model-error" class="add-error"></p>

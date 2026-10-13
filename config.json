@@ -1,5 +1,13 @@
 {
   "ollamaUrl": "http://127.0.0.1:11434",
   "model": "qwen3.5:4b",
-  "breakMinutes": 30
+  "breakMinutes": 30,
+  "alarmSound": "kitchen",
+  "alarmVolume": 70,
+  "alarmRepeat": 1,
+  "focusSound": "chime",
+  "focusVolume": 50,
+  "theme": "blue",
+  "hourFormat": "24",
+  "darkWhenRunning": false
 }

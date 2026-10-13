@@ -12,10 +12,10 @@
     "id": 2,
     "name": "测试",
     "duration": 300,
-    "remaining": 300,
+    "remaining": 293,
     "running": true,
-    "startedAt": 1791792387167,
-    "remainingAtStart": 300,
+    "startedAt": 1791858444032,
+    "remainingAtStart": 293,
     "finishedAt": null
   },
   {

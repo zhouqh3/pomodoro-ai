@@ -7,10 +7,18 @@ const sendBtn = document.getElementById('send-btn');
 const BASE = /(^https?:\/\/[^/]*):3000/.test(window.location.href) ? '' : 'http://localhost:3000';
 
 
+const ui = {
+  alarmSound: 'kitchen', alarmVolume: 70, alarmRepeat: 1,
+  focusSound: 'soft', focusVolume: 50,
+  theme: 'red', hourFormat: '24', darkWhenRunning: false
+};
+
 function fmt(sec) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-  if (h > 0) return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  const mm = String(m).padStart(2, '0'), ss = String(s).padStart(2, '0');
+  if (h <= 0) return mm + ':' + ss;
+  const hour = ui.hourFormat === '12' ? (h % 12 || 12) : h;
+  return String(hour).padStart(2, '0') + ':' + mm + ':' + ss;
 }
 
 function escAttr(s) { return s.replace(/"/g, '&quot;'); }
@@ -21,6 +29,7 @@ function escapeHtml(s) {
 function renderTimers(timers) {
   if (!timers.length) {
     timersEl.innerHTML = '<div class="empty">还没有计时器，在下方对话里告诉 AI 添加一个</div>';
+    document.body.classList.remove('running-dark');
     syncMini();
     return;
   }
@@ -47,6 +56,7 @@ function renderTimers(timers) {
       '</div>'
     ].join('\n');
   }).join('');
+  document.body.classList.toggle('running-dark', ui.darkWhenRunning && timers.some(t => t.running));
   syncMini();
 }
 
@@ -120,6 +130,7 @@ document.getElementById('add-timer').addEventListener('submit', async e => {
 timersEl.addEventListener('click', async e => {
   const btn = e.target.closest('button[data-act]');
   if (!btn) return;
+  if (btn.dataset.act === 'start') unlockAudio();
   await fetch(BASE + '/api/action', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -178,45 +189,67 @@ chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); 
 // ---- SSE ----
 let audioCtx;
 let seenRunning = new Set();
+let heardTimers = false;
+const TONES = {
+  soft: { type: 'sine', freqs: [784], dur: 0.16 },
+  bell: { type: 'sine', freqs: [988, 1319], dur: 0.22 },
+  digital: { type: 'square', freqs: [880], dur: 0.1 },
+  chime: { type: 'triangle', freqs: [523, 659, 784], dur: 0.16 },
+  kitchen: { type: 'triangle', freqs: [880, 1175], dur: 0.2 }
+};
 
-document.addEventListener('pointerdown', () => {
+function unlockAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return;
   if (!audioCtx) audioCtx = new Ctx();
   if (audioCtx.state === 'suspended') audioCtx.resume();
-}, { once: true });
+}
+document.addEventListener('pointerdown', unlockAudio);
 
-function ding() {
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;
-  if (!audioCtx) audioCtx = new Ctx();
-  const play = () => {
-    const now = audioCtx.currentTime;
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = 'sine';
-    o.frequency.value = 988;
-    o.connect(g);
-    g.connect(audioCtx.destination);
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(0.07, now + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-    o.start(now);
-    o.stop(now + 0.23);
+function playTone(name, volume, repeat) {
+  const spec = TONES[name];
+  if (!spec) return;
+  unlockAudio();
+  if (!audioCtx) return;
+  const vol = Math.max(0.001, Math.min(1, Number(volume) / 100));
+  const times = Math.max(1, Math.min(10, repeat || 1));
+  const run = () => {
+    const gap = spec.freqs.length * (spec.dur + 0.04) + 0.18;
+    for (let n = 0; n < times; n++) {
+      spec.freqs.forEach((freq, i) => {
+        const now = audioCtx.currentTime + n * gap + i * (spec.dur + 0.03);
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = spec.type;
+        o.frequency.value = freq;
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(vol, now + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + spec.dur);
+        o.start(now);
+        o.stop(now + spec.dur + 0.02);
+      });
+    }
   };
-  if (audioCtx.state === 'suspended') audioCtx.resume().then(play).catch(() => {});
-  else play();
+  if (audioCtx.state === 'suspended') audioCtx.resume().then(run).catch(() => {});
+  else run();
 }
 
-function noteFinish(timers) {
+function noteSounds(timers) {
   const nowRunning = new Set();
+  let started = false;
   let finished = false;
   for (const t of timers) {
-    if (t.running) nowRunning.add(t.id);
-    else if (seenRunning.has(t.id) && t.remaining <= 0) finished = true;
+    if (t.running) {
+      nowRunning.add(t.id);
+      if (heardTimers && !seenRunning.has(t.id)) started = true;
+    } else if (seenRunning.has(t.id) && t.remaining <= 0) finished = true;
   }
+  heardTimers = true;
   seenRunning = nowRunning;
-  if (finished) ding();
+  if (started) playTone(ui.focusSound, ui.focusVolume, 1);
+  if (finished) playTone(ui.alarmSound, ui.alarmVolume, ui.alarmRepeat);
 }
 
 function connectSSE() {
@@ -225,7 +258,7 @@ function connectSSE() {
     try {
       const d = JSON.parse(e.data);
       if (d.type === 'timers') {
-        noteFinish(d.timers);
+        noteSounds(d.timers);
         renderTimers(d.timers);
       }
     } catch { /* ignore */ }
@@ -294,8 +327,67 @@ async function loadOllamaModels(selected) {
   sel.value = names.includes(selected) ? selected : names[0];
 }
 
+function fillUiForm() {
+  document.getElementById('cfg-alarmSound').value = ui.alarmSound;
+  document.getElementById('cfg-alarmVolume').value = ui.alarmVolume;
+  document.getElementById('cfg-alarmRepeat').value = ui.alarmRepeat;
+  document.getElementById('cfg-focusSound').value = ui.focusSound;
+  document.getElementById('cfg-focusVolume').value = ui.focusVolume;
+  document.getElementById('cfg-hourFormat').value = ui.hourFormat;
+  document.getElementById('cfg-darkWhenRunning').checked = ui.darkWhenRunning;
+  document.querySelectorAll('#cfg-theme .swatch').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.theme === ui.theme);
+  });
+}
+function readUiForm() {
+  const themeBtn = document.querySelector('#cfg-theme .swatch.on');
+  return {
+    alarmSound: document.getElementById('cfg-alarmSound').value,
+    alarmVolume: Number(document.getElementById('cfg-alarmVolume').value),
+    alarmRepeat: Number(document.getElementById('cfg-alarmRepeat').value),
+    focusSound: document.getElementById('cfg-focusSound').value,
+    focusVolume: Number(document.getElementById('cfg-focusVolume').value),
+    theme: themeBtn ? themeBtn.dataset.theme : 'red',
+    hourFormat: document.getElementById('cfg-hourFormat').value,
+    darkWhenRunning: document.getElementById('cfg-darkWhenRunning').checked
+  };
+}
+function applyUi(next) {
+  Object.assign(ui, next);
+  document.documentElement.dataset.theme = ui.theme;
+  const running = document.querySelector('.timer-card.running');
+  document.body.classList.toggle('running-dark', ui.darkWhenRunning && !!running);
+}
+function takeConfig(cfg) {
+  const next = {};
+  for (const k of Object.keys(ui)) if (cfg[k] != null) next[k] = cfg[k];
+  applyUi(next);
+}
+
+document.getElementById('cfg-alarmSound').addEventListener('change', e => {
+  playTone(e.target.value, document.getElementById('cfg-alarmVolume').value, 1);
+});
+document.getElementById('cfg-focusSound').addEventListener('change', e => {
+  playTone(e.target.value, document.getElementById('cfg-focusVolume').value, 1);
+});
+document.getElementById('cfg-theme').addEventListener('click', e => {
+  const btn = e.target.closest('.swatch');
+  if (!btn) return;
+  document.querySelectorAll('#cfg-theme .swatch').forEach(el => el.classList.toggle('on', el === btn));
+  document.documentElement.dataset.theme = btn.dataset.theme;
+});
+document.getElementById('cfg-small').addEventListener('click', () => {
+  const api = window.__TAURI_INTERNALS__;
+  if (!api) return;
+  modal.classList.add('hidden');
+  api.invoke('compact_window');
+});
+
 document.getElementById('settings-btn').addEventListener('click', async () => {
+  unlockAudio();
   const cfg = await (await fetch(BASE + '/api/config')).json();
+  takeConfig(cfg);
+  fillUiForm();
   document.getElementById('cfg-ollamaUrl').value = cfg.ollamaUrl || 'http://127.0.0.1:11434';
   document.getElementById('cfg-breakMinutes').value = cfg.breakMinutes || 30;
   modal.classList.remove('hidden');
@@ -306,16 +398,77 @@ document.getElementById('cfg-ollamaUrl').addEventListener('change', () => {
 });
 document.getElementById('close-cfg').addEventListener('click', () => modal.classList.add('hidden'));
 document.getElementById('save-cfg').addEventListener('click', async () => {
-  const body = {
+  const body = Object.assign({
     ollamaUrl: document.getElementById('cfg-ollamaUrl').value.trim(),
     model: document.getElementById('cfg-model').value.trim(),
     breakMinutes: Number(document.getElementById('cfg-breakMinutes').value)
-  };
+  }, readUiForm());
   await fetch(BASE + '/api/config', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+  applyUi(readUiForm());
   modal.classList.add('hidden');
   addMsg('ai', '配置已保存并即时生效');
+});
+
+fetch(BASE + '/api/config').then(r => r.json()).then(takeConfig).catch(() => {});
+
+const reportModal = document.getElementById('report-modal');
+let reportRange = 'week';
+let reportOffset = 0;
+
+function paintReport(data) {
+  document.getElementById('stat-hours').textContent = data.hours;
+  document.getElementById('stat-days').textContent = data.days;
+  document.getElementById('stat-streak').textContent = data.streak;
+  document.getElementById('report-title').textContent = data.title;
+  document.getElementById('report-next').disabled = reportOffset >= 0;
+  const max = Math.max(...data.buckets.map(b => b.hours), 0);
+  document.getElementById('report-chart').innerHTML = data.buckets.map(b => {
+    const h = max ? Math.max(4, Math.round(b.hours / max * 120)) : 0;
+    return '<div class="bar-col"><div class="bar" style="height:' + (b.hours ? h : 0) + 'px"></div><em>' + b.label + '</em></div>';
+  }).join('');
+  const detail = document.querySelector('[data-panel="detail"]');
+  detail.innerHTML = data.detail.length
+    ? '<div class="report-list">' + data.detail.map(e => {
+      const when = new Date(e.at);
+      const label = (when.getMonth() + 1) + '/' + when.getDate() + ' ' + String(when.getHours()).padStart(2, '0') + ':' + String(when.getMinutes()).padStart(2, '0');
+      return '<div><b>' + escapeHtml(e.name) + '</b><span>' + e.minutes + ' 分钟 · ' + label + '</span></div>';
+    }).join('') + '</div>'
+    : '<div class="empty">还没有完成的计时</div>';
+}
+
+async function loadReport() {
+  const resp = await fetch(BASE + '/api/report?range=' + reportRange + '&offset=' + reportOffset);
+  paintReport(await resp.json());
+}
+
+document.getElementById('report-btn').addEventListener('click', () => {
+  reportModal.classList.remove('hidden');
+  loadReport().catch(() => {});
+});
+document.getElementById('report-close').addEventListener('click', () => reportModal.classList.add('hidden'));
+document.getElementById('report-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#report-tabs button').forEach(el => el.classList.toggle('on', el === btn));
+  document.querySelectorAll('#report-modal [data-panel]').forEach(el => {
+    el.classList.toggle('hidden', el.dataset.panel !== btn.dataset.tab);
+  });
+});
+document.getElementById('report-range').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  reportRange = btn.dataset.range;
+  reportOffset = 0;
+  document.querySelectorAll('#report-range button').forEach(el => el.classList.toggle('on', el === btn));
+  loadReport().catch(() => {});
+});
+document.getElementById('report-prev').addEventListener('click', () => { reportOffset--; loadReport().catch(() => {}); });
+document.getElementById('report-next').addEventListener('click', () => {
+  if (reportOffset >= 0) return;
+  reportOffset++;
+  loadReport().catch(() => {});
 });

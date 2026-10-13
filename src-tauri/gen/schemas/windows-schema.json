@@ -387,6 +387,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the compact_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-compact-window",
+          "markdownDescription": "Enables the compact_window command without any pre-configured scope."
+        },
+        {
           "description": "Enables the drag_window command without any pre-configured scope.",
           "type": "string",
           "const": "allow-drag-window",
@@ -403,6 +409,12 @@
           "type": "string",
           "const": "allow-restore-window",
           "markdownDescription": "Enables the restore_window command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the compact_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-compact-window",
+          "markdownDescription": "Denies the compact_window command without any pre-configured scope."
         },
         {
           "description": "Denies the drag_window command without any pre-configured scope.",

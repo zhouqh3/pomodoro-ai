@@ -10,6 +10,7 @@
     "core:default",
     "allow-restore-window",
     "allow-drag-window",
-    "allow-fit-compact"
+    "allow-fit-compact",
+    "allow-compact-window"
   ]
 }

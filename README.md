@@ -27,7 +27,7 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
-构建产物 `pomodoro-ai.exe` 依赖 Node 在 PATH 中。双击 exe 即可运行。
+发布版是一个自包含的 `pomodoro-ai.exe`：网页和计时服务打在文件里，双击即可运行，不需要另外安装 Node。配置和计时记录写在 `%LOCALAPPDATA%\pomodoro-ai`。本机仍需安装 Ollama（模型不打进 exe），以及系统自带的 WebView2。
 
 > 环境要求：Rust (cargo) + MSVC C++ 构建工具 + WebView2（Win10/11 自带 Edge 即包含）。
 
